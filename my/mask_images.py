@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from PIL import Image
+import argparse
 
 
 def apply_masks_to_images(image_folder, mask_folder, output_folder):
@@ -20,7 +21,8 @@ def apply_masks_to_images(image_folder, mask_folder, output_folder):
     for image_file, mask_file in zip(image_files, mask_files):
         # Load image
         image_path = os.path.join(image_folder, image_file)
-        image = Image.open(image_path).convert("RGBA")
+        # Convert to RGB instead of RGBA since JPG doesn't support transparency
+        image = Image.open(image_path).convert("RGB")
 
         # Load mask
         mask_path = os.path.join(mask_folder, mask_file)
@@ -35,26 +37,41 @@ def apply_masks_to_images(image_folder, mask_folder, output_folder):
         image_array = np.array(image)
         mask_array = np.array(mask)
 
-        # Create an alpha channel from the mask
-        alpha_channel = mask_array
+        # Apply mask to RGB channels
+        # Create a boolean mask where mask is non-zero
+        mask_bool = mask_array > 0
+        # Broadcast the mask to all channels
+        mask_3d = np.stack([mask_bool] * 3, axis=2)
+        # Set background (where mask is zero) to white
+        image_array[~mask_3d] = 255
 
-        # Apply the alpha channel to the image
-        image_array[:, :, 3] = alpha_channel
+        # Create a new image
+        masked_image = Image.fromarray(image_array, "RGB")
 
-        # Create a new image with transparency
-        masked_image = Image.fromarray(image_array, "RGBA")
-
-        # Save the masked image as PNG
-        output_filename = f"{os.path.splitext(image_file)[0]}.png"
+        # Save the masked image as JPG with maximum quality
+        output_filename = f"{os.path.splitext(image_file)[0]}.jpg"
         output_path = os.path.join(output_folder, output_filename)
-        masked_image.save(output_path, format="PNG")
+        masked_image.save(output_path, format="JPEG", quality=95, optimize=False)
 
         print(f"Processed: {image_file} with {mask_file} -> {output_filename}")
 
 
-# Your folder paths remain the same
-image_folder = "c://Users/U/Documents/gs/captures/model-3-1600/images"
-mask_folder = "c://Users/U/Documents/gs/Relightable/inputs/model-3-1600/mask"
-output_folder = "c://Users/U/Documents/gs/Relightable/inputs/model-3-1600/images"
+def main():
+    parser = argparse.ArgumentParser(
+        description="Apply masks to images and save as high-quality JPG"
+    )
+    parser.add_argument(
+        "image_folder", help="Path to the folder containing input images"
+    )
+    parser.add_argument("mask_folder", help="Path to the folder containing mask images")
+    parser.add_argument(
+        "output_folder", help="Path to the folder where masked images will be saved"
+    )
 
-apply_masks_to_images(image_folder, mask_folder, output_folder)
+    args = parser.parse_args()
+
+    apply_masks_to_images(args.image_folder, args.mask_folder, args.output_folder)
+
+
+if __name__ == "__main__":
+    main()

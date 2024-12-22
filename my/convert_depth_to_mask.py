@@ -2,6 +2,7 @@ import os
 import torch
 import numpy as np
 from PIL import Image
+import argparse
 
 
 def convert_depth_to_mask(input_folder, output_folder):
@@ -44,8 +45,19 @@ def convert_depth_to_mask(input_folder, output_folder):
             print(f"Processed: {filename} -> {output_filename}")
 
 
-# Usage
-input_folder = "c://Users/U/Documents/gs/RaDe-GS/outputs/model-3-1600/full_depth_data"
-output_folder = "c://Users/U/Documents/gs/Relightable/inputs/model-3-1600/mask"
+def main():
+    parser = argparse.ArgumentParser(description="Convert depth maps to binary masks")
+    parser.add_argument(
+        "input_folder", help="Path to the input folder containing .pt depth maps"
+    )
+    parser.add_argument(
+        "output_folder", help="Path to the output folder for saving masks"
+    )
 
-convert_depth_to_mask(input_folder, output_folder)
+    args = parser.parse_args()
+
+    convert_depth_to_mask(args.input_folder, args.output_folder)
+
+
+if __name__ == "__main__":
+    main()

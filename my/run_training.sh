@@ -1,6 +1,6 @@
 #!/bin/bash
 
-scene="model-3-1600"
+scene="robot-4"
 input_path="/c/Users/U/Documents/gs/Relightable/inputs/${scene}"
 output_path_3dgs="/c/Users/U/Documents/gs/Relightable/outputs/${scene}/3dgs"
 output_path_neilf="/c/Users/U/Documents/gs/Relightable/outputs/${scene}/neilfs"

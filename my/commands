@@ -1,0 +1,1 @@
+python convert.py -s /c/Users/U/Documents/gs/captures/robot-3/ --colmap_executable /c/Users/U/colmap-x64-windows-cuda/COLMAP.bat 
