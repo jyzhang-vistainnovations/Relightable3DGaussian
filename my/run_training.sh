@@ -2,8 +2,8 @@
 
 scene="robot-4"
 input_path="/c/Users/U/Documents/gs/Relightable/inputs/${scene}"
-output_path_3dgs="/c/Users/U/Documents/gs/Relightable/outputs/${scene}/3dgs"
-output_path_neilf="/c/Users/U/Documents/gs/Relightable/outputs/${scene}/neilfs"
+output_path_3dgs="/c/Users/U/Documents/gs/Relightable/outputs/${scene}-2/3dgs"
+output_path_neilf="/c/Users/U/Documents/gs/Relightable/outputs/${scene}-2/neilfs"
 
 python train.py \
     -s $input_path \
@@ -17,7 +17,7 @@ python train.py \
 python train.py \
     -s $input_path \
     -m $output_path_neilf \
-    -c $output_path_3dgs/chkpnt30000.pth \
+    -c $output_path_3dgs/chkpnt10000.pth \
     --save_training_vis \
     --position_lr_init 0.000016 \
     --position_lr_final 0.00000016 \

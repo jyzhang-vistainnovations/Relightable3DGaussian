@@ -143,10 +143,19 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder, debug=False
         )
         mask = load_mask_bool(mask_path)
 
-        # Load and resize mask to match image dimensions
-        mask = cv2.resize(
+        # Resize mask to match image dimensions
+        mask2 = cv2.resize(
             mask, (image.shape[1], image.shape[0]), interpolation=cv2.INTER_NEAREST
         )
+
+        # # Normalize mask to [0,1] and invert it
+        # mask2 = 1.0 - mask2 / 255.0
+
+        # Three-channel for RGB image masking
+        mask_rgb = np.repeat(mask2[..., np.newaxis], 3, axis=2)
+
+        # Apply mask to image
+        image = image * mask_rgb
 
         cam_info = CameraInfo(
             uid=uid,
