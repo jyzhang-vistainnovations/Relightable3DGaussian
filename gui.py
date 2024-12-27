@@ -24,7 +24,9 @@ def safe_normalize(x, eps=1e-20):
 
 
 class OrbitCamera:
-    def __init__(self, W, H, fovy=60, near=0.1, far=10, rot=None, translate=None, center=None):
+    def __init__(
+        self, W, H, fovy=60, near=0.1, far=10, rot=None, translate=None, center=None
+    ):
         self.W = W
         self.H = H
         if translate is None:
@@ -42,7 +44,9 @@ class OrbitCamera:
             self.center = center
 
         if rot is None:
-            self.rot = R.from_matrix(np.array([[1, 0, 0], [0, 1, 0], [0, 0, -1]]))  # looking back to z axis
+            self.rot = R.from_matrix(
+                np.array([[1, 0, 0], [0, 1, 0], [0, 0, -1]])
+            )  # looking back to z axis
         else:
             self.rot = R.from_matrix(rot)
 
@@ -76,7 +80,9 @@ class OrbitCamera:
 
     def orbit(self, dx, dy):
         # rotate along camera up/side axis!
-        side = self.rot.as_matrix()[:3, 0]  # why this is side --> ? # already normalized.
+        side = self.rot.as_matrix()[
+            :3, 0
+        ]  # why this is side --> ? # already normalized.
         rotvec_x = self.up * np.radians(-0.05 * dx)
         rotvec_y = side * np.radians(-0.05 * dy)
         self.rot = R.from_rotvec(rotvec_x) * R.from_rotvec(rotvec_y) * self.rot
@@ -90,8 +96,18 @@ class OrbitCamera:
 
 
 class GUI:
-    def __init__(self, H, W, fovy, c2w, center, render_fn, render_kwargs, 
-                 mode="render", debug=True):
+    def __init__(
+        self,
+        H,
+        W,
+        fovy,
+        c2w,
+        center,
+        render_fn,
+        render_kwargs,
+        mode="render",
+        debug=True,
+    ):
         self.W = W
         self.H = H
         self.debug = debug
@@ -99,8 +115,15 @@ class GUI:
         translate = c2w[:3, 3] - center
         self.render_fn = render_fn
         self.render_kwargs = render_kwargs
-        
-        self.cam = OrbitCamera(self.W, self.H, fovy=fovy * 180 / np.pi, rot=rot, translate=translate, center=center)
+
+        self.cam = OrbitCamera(
+            self.W,
+            self.H,
+            fovy=fovy * 180 / np.pi,
+            rot=rot,
+            translate=translate,
+            center=center,
+        )
 
         self.render_buffer = np.zeros((self.W, self.H, 3), dtype=np.float32)
         self.resize_fn = torchvision.transforms.Resize((self.H, self.W), antialias=True)
@@ -120,7 +143,12 @@ class GUI:
 
     def get_buffer(self, render_results, mode=None):
         if render_results is None or mode is None:
-            output = torch.ones(self.H, self.W, 3, dtype=torch.float32, device='cuda').detach().cpu().numpy()
+            output = (
+                torch.ones(self.H, self.W, 3, dtype=torch.float32, device="cuda")
+                .detach()
+                .cpu()
+                .numpy()
+            )
         else:
             output = render_results[mode]
 
@@ -151,9 +179,20 @@ class GUI:
         H, W = self.H // down, self.W // down
         fovy = self.cam.fovy * np.pi / 180
         fovx = fovy * W / H
-        custom_cam = Camera(colmap_id=0, R=R, T=-T,
-                            FoVx=fovx, FoVy=fovy, fx=None, fy=None, cx=None, cy=None,
-                            image=torch.zeros(3, H, W), image_name=None, uid=0)
+        custom_cam = Camera(
+            colmap_id=0,
+            R=R,
+            T=-T,
+            FoVx=fovx,
+            FoVy=fovy,
+            fx=None,
+            fy=None,
+            cx=None,
+            cy=None,
+            image=torch.zeros(3, H, W),
+            image_name=None,
+            uid=0,
+        )
         return custom_cam
 
     @torch.no_grad()
@@ -163,7 +202,9 @@ class GUI:
 
     def step(self):
         self.start.record()
-        render_pkg = self.render_fn(viewpoint_camera=self.custom_cam, **self.render_kwargs)
+        render_pkg = self.render_fn(
+            viewpoint_camera=self.custom_cam, **self.render_kwargs
+        )
         self.end.record()
         torch.cuda.synchronize()
         t = self.start.elapsed_time(self.end)
@@ -177,10 +218,14 @@ class GUI:
             fps = int(1000 / t)
 
         if self.menu is None:
-            self.menu = [k for k, v in render_pkg.items() if
-                         isinstance(v, torch.Tensor) and np.array(v.shape).prod() % (self.H * self.W) == 0]
+            self.menu = [
+                k
+                for k, v in render_pkg.items()
+                if isinstance(v, torch.Tensor)
+                and np.array(v.shape).prod() % (self.H * self.W) == 0
+            ]
         else:
-            dpg.set_value("_log_infer_time", f'{t:.4f}ms ({fps} FPS)')
+            dpg.set_value("_log_infer_time", f"{t:.4f}ms ({fps} FPS)")
             dpg.set_value("_texture", self.render_buffer)
 
     def register_dpg(self):
@@ -188,7 +233,13 @@ class GUI:
         ### register texture
 
         with dpg.texture_registry(show=False):
-            dpg.add_raw_texture(self.W, self.H, self.render_buffer, format=dpg.mvFormat_Float_rgb, tag="_texture")
+            dpg.add_raw_texture(
+                self.W,
+                self.H,
+                self.render_buffer,
+                format=dpg.mvFormat_Float_rgb,
+                tag="_texture",
+            )
 
         ### register window
 
@@ -223,22 +274,39 @@ class GUI:
                     self.mode = app_data
                     self.need_update = True
 
-                dpg.add_combo(self.menu, label='mode', default_value=self.mode, callback=callback_change_mode)
+                dpg.add_combo(
+                    self.menu,
+                    label="mode",
+                    default_value=self.mode,
+                    callback=callback_change_mode,
+                )
 
                 def callback_set_downsample(sender, app_data):
                     self.downsample = app_data
                     self.need_update = True
 
-                dpg.add_slider_int(label="Downsample", min_value=1, max_value=8, format="x%d",
-                                   default_value=self.downsample, callback=callback_set_downsample)
+                dpg.add_slider_int(
+                    label="Downsample",
+                    min_value=1,
+                    max_value=8,
+                    format="x%d",
+                    default_value=self.downsample,
+                    callback=callback_set_downsample,
+                )
 
                 # fov slider
                 def callback_set_fovy(sender, app_data):
                     self.cam.fovy = app_data
                     self.need_update = True
 
-                dpg.add_slider_int(label="FoV (vertical)", min_value=1, max_value=120, format="%d deg",
-                                   default_value=self.cam.fovy, callback=callback_set_fovy)
+                dpg.add_slider_int(
+                    label="FoV (vertical)",
+                    min_value=1,
+                    max_value=120,
+                    format="%d deg",
+                    default_value=self.cam.fovy,
+                    callback=callback_set_fovy,
+                )
 
             # debug info
             if self.debug:
@@ -292,19 +360,34 @@ class GUI:
                 dpg.set_value("_log_pose", str(self.cam.pose))
 
         with dpg.handler_registry():
-            dpg.add_mouse_drag_handler(button=dpg.mvMouseButton_Left, callback=callback_camera_drag_rotate)
+            dpg.add_mouse_drag_handler(
+                button=dpg.mvMouseButton_Left, callback=callback_camera_drag_rotate
+            )
             dpg.add_mouse_wheel_handler(callback=callback_camera_wheel_scale)
-            dpg.add_mouse_drag_handler(button=dpg.mvMouseButton_Right, callback=callback_camera_drag_pan)
+            dpg.add_mouse_drag_handler(
+                button=dpg.mvMouseButton_Right, callback=callback_camera_drag_pan
+            )
 
-        dpg.create_viewport(title='3D Gaussian Rendering Viewer', width=self.W, height=self.H, resizable=False)
+        dpg.create_viewport(
+            title="3D Gaussian Rendering Viewer",
+            width=self.W,
+            height=self.H,
+            resizable=False,
+        )
 
         ### global theme
         with dpg.theme() as theme_no_padding:
             with dpg.theme_component(dpg.mvAll):
                 # set all padding to 0 to avoid scroll bar
-                dpg.add_theme_style(dpg.mvStyleVar_WindowPadding, 0, 0, category=dpg.mvThemeCat_Core)
-                dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 0, 0, category=dpg.mvThemeCat_Core)
-                dpg.add_theme_style(dpg.mvStyleVar_CellPadding, 0, 0, category=dpg.mvThemeCat_Core)
+                dpg.add_theme_style(
+                    dpg.mvStyleVar_WindowPadding, 0, 0, category=dpg.mvThemeCat_Core
+                )
+                dpg.add_theme_style(
+                    dpg.mvStyleVar_FramePadding, 0, 0, category=dpg.mvThemeCat_Core
+                )
+                dpg.add_theme_style(
+                    dpg.mvStyleVar_CellPadding, 0, 0, category=dpg.mvThemeCat_Core
+                )
 
         dpg.bind_item_theme("_primary_window", theme_no_padding)
 
@@ -312,7 +395,7 @@ class GUI:
         dpg.show_viewport()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Set up command line argument parser
     parser = ArgumentParser(description="Testing script parameters")
     model = ModelParams(parser)
@@ -320,12 +403,13 @@ if __name__ == '__main__':
     parser.add_argument("--iteration", default=-1, type=int)
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
-    parser.add_argument('-t', '--type', choices=['render','neilf'], default='render')
+    parser.add_argument("-t", "--type", choices=["render", "neilf"], default="render")
     parser.add_argument("--quiet", action="store_true")
-    parser.add_argument("-c", "--checkpoint", type=str, default=None,
-                        help="resume from checkpoint")
+    parser.add_argument(
+        "-c", "--checkpoint", type=str, default=None, help="resume from checkpoint"
+    )
     parser.add_argument("--scale", type=int, default=1)
-    parser.add_argument('--hdr2ldr', action="store_true")
+    parser.add_argument("--hdr2ldr", action="store_true")
 
     args = parser.parse_args()
     print("Rendering " + args.model_path)
@@ -336,40 +420,59 @@ if __name__ == '__main__':
     pipe = pipeline.extract(args)
 
     gaussians = GaussianModel(dataset.sh_degree, render_type=args.type)
-    
+
     pbr_kwargs = dict()
-    pbr_kwargs['sample_num'] = pipe.sample_num
+    pbr_kwargs["sample_num"] = pipe.sample_num
     checkpoints = glob.glob(os.path.join(args.model_path, "chkpnt*.pth"))
     if args.checkpoint is not None or len(checkpoints) > 0:
         if args.checkpoint is not None:
             checkpoint = args.checkpoint
         else:
-            checkpoint = sorted(checkpoints, key=lambda x: int(x.split("chkpnt")[-1].split(".")[0]))[-1]
+            checkpoint = sorted(
+                checkpoints, key=lambda x: int(x.split("chkpnt")[-1].split(".")[0])
+            )[-1]
         (model_params, first_iter) = torch.load(checkpoint)
         gaussians.create_from_ckpt(checkpoint, restore_optimizer=False)
 
-        env_checkpoint = checkpoint.split("chkpnt")[0] + "env_light_chkpnt" + checkpoint.split("chkpnt")[-1]
+        env_checkpoint = (
+            checkpoint.split("chkpnt")[0]
+            + "env_light_chkpnt"
+            + checkpoint.split("chkpnt")[-1]
+        )
         if os.path.exists(env_checkpoint):
             env_light = DirectLightMap(dataset.global_shs_degree)
             env_light.create_from_ckpt(env_checkpoint, restore_optimizer=False)
 
             pbr_kwargs["env_light"] = env_light
         else:
-            print("cannot find env_light_checkpoint at {}, and env light will be ignore.".format(env_checkpoint))
+            print(
+                "cannot find env_light_checkpoint at {}, and env light will be ignore.".format(
+                    env_checkpoint
+                )
+            )
     else:
         if args.iteration == -1:
-            loaded_iter = searchForMaxIteration(os.path.join(args.model_path, "point_cloud"))
+            loaded_iter = searchForMaxIteration(
+                os.path.join(args.model_path, "point_cloud")
+            )
         else:
             loaded_iter = args.loaded_iter
         gaussians.load_ply(
-            os.path.join(args.model_path, "point_cloud", "iteration_" + str(loaded_iter), "point_cloud.ply"))
+            os.path.join(
+                args.model_path,
+                "point_cloud",
+                "iteration_" + str(loaded_iter),
+                "point_cloud.ply",
+            )
+        )
 
     render_fn = render_fn_dict[args.type]
     bg_color = [1, 1, 1] if dataset.white_background else [0, 0, 0]
     background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
+    gaussians.update_visibility(pipe.sample_num)
 
     if os.path.exists(os.path.join(args.model_path, "cameras.json")):
-        with open(os.path.join(args.model_path, "cameras.json"), 'r') as file:
+        with open(os.path.join(args.model_path, "cameras.json"), "r") as file:
             cam = JSON_to_camera(json.load(file)[0])
         c2w = cam.c2w.detach().cpu().numpy()
         H, W = int(cam.image_height / args.scale), int(cam.image_width / args.scale)
@@ -380,26 +483,34 @@ if __name__ == '__main__':
     else:
         H, W = 800, 800
         fovy = 50 * np.pi / 180
-        c2w = np.array([
-            [0.0, 0.0, -1.0, 2.0],
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, -1.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0]
-        ])
+        c2w = np.array(
+            [
+                [0.0, 0.0, -1.0, 2.0],
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, -1.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        )
     center = gaussians.get_xyz.mean(dim=0).detach().cpu().numpy()
-    
+
     render_kwargs = {
         "pc": gaussians,
         "pipe": pipe,
         "bg_color": background,
         "is_training": False,
-        "dict_params": pbr_kwargs
+        "dict_params": pbr_kwargs,
     }
 
-    windows = GUI(H, W, fovy,
-                  c2w=c2w, center=center,
-                  render_fn=render_fn, render_kwargs=render_kwargs,
-                  mode='pbr')
+    windows = GUI(
+        H,
+        W,
+        fovy,
+        c2w=c2w,
+        center=center,
+        render_fn=render_fn,
+        render_kwargs=render_kwargs,
+        mode="render",
+    )
 
     while True:
         windows.render()

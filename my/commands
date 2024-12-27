@@ -1,1 +1,3 @@
 python convert.py -s /c/Users/U/Documents/gs/captures/robot-3/ --colmap_executable /c/Users/U/colmap-x64-windows-cuda/COLMAP.bat 
+
+python gui.py --source_path /c/Users/U/Documents/gs/Relightable/inputs/robot-4 --model_path /c/Users/U/Documents/gs/Relightable/outputs/robot-4-2/neilfs/ -t neilf
