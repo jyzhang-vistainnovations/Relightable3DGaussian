@@ -11,6 +11,7 @@
 
 #include "forward.h"
 #include "auxiliary.h"
+#include "math_helper.h"
 #include <cooperative_groups.h>
 #include <cooperative_groups/reduce.h>
 namespace cg = cooperative_groups;
@@ -152,33 +153,107 @@ __device__ void computeCov3D(const glm::vec3 scale, float mod, const glm::vec4 r
     cov3D[5] = Sigma[2][2];
 }
 
+__device__ void calcV1V2(
+    const float3& cov,    // x=cov[0][0], y=cov[0][1], z=cov[1][1]
+    float2& v1,
+    float2& v2)
+{   
+    float diagonal1 = cov.x;  // Already includes +0.3f from computeCov2D
+    float offDiagonal = cov.y;
+    float diagonal2 = cov.z;  // Already includes +0.3f from computeCov2D
+
+    // Compute eigenvalues and eigenvector
+    float mid = 0.5f * (diagonal1 + diagonal2);
+    float radius = sqrtf((diagonal1 - diagonal2) * (diagonal1 - diagonal2) / 4.0f + offDiagonal * offDiagonal);
+    float lambda1 = mid + radius;
+    float lambda2 = max(mid - radius, 0.1f);
+
+    // Compute principal vectors
+    float2 diagonalVector = normalize(make_float2(offDiagonal, lambda1 - diagonal1));
+
+    // Scale vectors by eigenvalues
+    v1 = min(sqrtf(2.0f * lambda1), 1024.0f) * diagonalVector;
+    v2 = min(sqrtf(2.0f * lambda2), 1024.0f) * make_float2(diagonalVector.y, -diagonalVector.x);
+}
+
+__device__ void setupQuadFromCovariance(
+    const float3& mean,      
+    const float3& cov,
+    const float* viewmatrix, 
+    const float focal_x,     
+    const float focal_y,     
+    const float tan_fovx,    
+    const float tan_fovy,    
+    const float opacity,     
+    float4* quadVertices)   
+{
+    float3 mean_cam = transformPoint4x3(mean, viewmatrix);
+    float2 v1, v2;
+    calcV1V2(cov, v1, v2);
+
+    float scale = min(1.0f, sqrtf(-logf(1.0f / 255.0f / opacity)) / 2.0f);
+    
+    if (dot(v1, v1) < 4.0f && dot(v2, v2) < 4.0f) {
+        quadVertices[0] = make_float4(0.0f, 0.0f, 2.0f, 1.0f);
+        quadVertices[1] = make_float4(0.0f, 0.0f, 2.0f, 1.0f);
+        quadVertices[2] = make_float4(0.0f, 0.0f, 2.0f, 1.0f);
+        quadVertices[3] = make_float4(0.0f, 0.0f, 2.0f, 1.0f);
+        return;
+    }
+
+    v1 *= scale;
+    v2 *= scale;
+
+    // Generate vertices in camera space
+    float4 vertices_cam[4];
+    vertices_cam[0] = make_float4(mean_cam.x + (-v1.x - v2.x), mean_cam.y + (-v1.y - v2.y), mean_cam.z, 1.0f);
+    vertices_cam[1] = make_float4(mean_cam.x + (v1.x - v2.x), mean_cam.y + (v1.y - v2.y), mean_cam.z, 1.0f);
+    vertices_cam[2] = make_float4(mean_cam.x + (v1.x + v2.x), mean_cam.y + (v1.y + v2.y), mean_cam.z, 1.0f);
+    vertices_cam[3] = make_float4(mean_cam.x + (-v1.x + v2.x), mean_cam.y + (-v1.y + v2.y), mean_cam.z, 1.0f);
+
+    // Transform back to world space
+    glm::mat4 viewMatrix(
+        viewmatrix[0], viewmatrix[1], viewmatrix[2], viewmatrix[3],
+        viewmatrix[4], viewmatrix[5], viewmatrix[6], viewmatrix[7],
+        viewmatrix[8], viewmatrix[9], viewmatrix[10], viewmatrix[11],
+        viewmatrix[12], viewmatrix[13], viewmatrix[14], viewmatrix[15]
+    );
+    
+    glm::mat4 viewMatrixInverse = glm::inverse(viewMatrix);
+    
+    for(int i = 0; i < 4; i++) {
+        glm::vec4 v_cam(vertices_cam[i].x, vertices_cam[i].y, vertices_cam[i].z, vertices_cam[i].w);
+        glm::vec4 v_world = viewMatrixInverse * v_cam;
+        quadVertices[i] = make_float4(v_world.x, v_world.y, v_world.z, v_world.w);
+    }
+}
+
 // Perform initial steps for each Gaussian prior to rasterization.
 template<int C>
 __global__ void preprocessCUDA(int P, int D, int M,
-	const float* orig_points,
-	const glm::vec3* scales,
-	const float scale_modifier,
-	const glm::vec4* rotations,
-	const float* opacities,
-	const float* shs,
-	bool* clamped,
-	const float* cov3D_precomp,
-	const float* colors_precomp,
-	const float* viewmatrix,
-	const float* projmatrix,
-	const glm::vec3* cam_pos,
-	const int W, int H,
-	const float tan_fovx, float tan_fovy,
-	const float focal_x, float focal_y,
-	int* radii,
-	float2* points_xy_image,
-	float* depths,
-	float* cov3Ds,
-	float* rgb,
-	float4* conic_opacity,
-	const dim3 grid,
-	uint32_t* tiles_touched,
-	bool prefiltered)
+    const float* orig_points,
+    const glm::vec3* scales,
+    const float scale_modifier,
+    const glm::vec4* rotations,
+    const float* opacities,
+    const float* shs,
+    bool* clamped,
+    const float* cov3D_precomp,
+    const float* colors_precomp,
+    const float* viewmatrix,
+    const float* projmatrix,
+    const glm::vec3* cam_pos,
+    const int W, int H,
+    const float tan_fovx, float tan_fovy,
+    int* radii,
+    float2* points_xy_image,
+    float* depths,
+    float* cov3Ds,
+    float* rgb,
+    float4* quad_vertices,    // New: Store 4 vertices per splat
+    const dim3 grid,
+    uint32_t* tiles_touched,
+    bool prefiltered)
 {
 	auto idx = cg::this_grid().thread_rank();
 	if (idx >= P)
@@ -252,9 +327,27 @@ __global__ void preprocessCUDA(int P, int D, int M,
 	radii[idx] = my_radius;
 
 	points_xy_image[idx] = point_image;
-	// Inverse 2D covariance and opacity neatly pack into one float4
-	conic_opacity[idx] = { conic.x, conic.y, conic.z, opacities[idx] };
 	tiles_touched[idx] = (rect_max.y - rect_min.y) * (rect_max.x - rect_min.x);
+
+	float focal_x = 0.5f * W / tan_fovx;
+    float focal_y = 0.5f * H / tan_fovy;
+
+	float4 vertices[4];
+    setupQuadFromCovariance(
+        p_orig,
+        cov,
+        viewmatrix,
+        focal_x,
+        focal_y,
+        tan_fovx,
+        tan_fovy,
+        opacities[idx],
+        vertices);
+
+    // Store quad vertices
+    for(int i = 0; i < 4; i++) {
+        quad_vertices[idx * 4 + i] = vertices[i];
+    }
 }
 
 // Main rasterization method. Collaboratively works on one tile per

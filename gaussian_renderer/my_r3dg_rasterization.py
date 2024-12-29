@@ -19,7 +19,7 @@ except Exception as e:
         extra_cflags=["-O3"],
         sources=[
             os.path.join(parent_dir, "cuda_rasterizer/rasterizer_impl.cu"),
-            os.path.join(parent_dir, "cuda_rasterizer/forward.cu"),
+            os.path.join(parent_dir, "my_rasterizer/forward.cu"),
             os.path.join(parent_dir, "cuda_rasterizer/backward.cu"),
             os.path.join(parent_dir, "rasterize_points.cu"),
             os.path.join(parent_dir, "ext.cpp"),
