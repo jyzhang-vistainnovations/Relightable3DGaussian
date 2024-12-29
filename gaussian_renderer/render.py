@@ -16,8 +16,9 @@ from utils.loss_utils import (
 )
 from utils.image_utils import psnr
 
-# from .r3dg_rasterization import GaussianRasterizationSettings, GaussianRasterizer
-from .my_r3dg_rasterization import GaussianRasterizationSettings, GaussianRasterizer
+from .r3dg_rasterization import GaussianRasterizationSettings, GaussianRasterizer
+
+# from .my_r3dg_rasterization import GaussianRasterizationSettings, GaussianRasterizer
 
 
 def render_view(
